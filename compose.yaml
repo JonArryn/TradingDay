@@ -1,0 +1,8 @@
+﻿services:
+
+  tradingday.runner:
+    image: tradingday.runner
+    build:
+      context: .
+      dockerfile: TradingDay.Runner/Dockerfile
+
