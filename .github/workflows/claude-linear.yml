@@ -1,86 +1,86 @@
 name: Claude Code - Linear Ticket Automation
 
-  on:
-    workflow_dispatch:
-      inputs:
-        linear_ticket_id:
-          description: 'Linear ticket ID (e.g. TRD-42)'
-          required: true
-        linear_ticket_title:
-          description: 'Ticket title'
-          required: true
-        linear_ticket_description:
-          description: 'Ticket description'
-          required: true
+on:
+  workflow_dispatch:
+    inputs:
+      linear_ticket_id:
+        description: 'Linear ticket ID (e.g. TRD-42)'
+        required: true
+      linear_ticket_title:
+        description: 'Ticket title'
+        required: true
+      linear_ticket_description:
+        description: 'Ticket description'
+        required: true
 
-  jobs:
-    claude-code:
-      runs-on: ubuntu-latest
-      permissions:
-        contents: write
-        pull-requests: write
+jobs:
+  claude-code:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
-      steps:
-        - name: Checkout repo
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-        - name: Set up Node.js
-          uses: actions/setup-node@v4
-          with:
-            node-version: '20'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-        - name: Install Claude Code
-          run: npm install -g @anthropic-ai/claude-code
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
 
-        - name: Configure git
-          run: |
-            git config user.name "Claude Code Bot"
-            git config user.email "claude@tradingday.app"
+      - name: Configure git
+        run: |
+          git config user.name "Claude Code Bot"
+          git config user.email "claude@tradingday.app"
 
-        - name: Create branch
-          id: branch
-          run: |
-            BRANCH="claude/${{ github.event.inputs.linear_ticket_id }}-$(echo '${{ github.event.inputs.linear_ticket_title }}' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)"
-            git checkout -b "$BRANCH"
-            echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+      - name: Create branch
+        id: branch
+        run: |
+          BRANCH="claude/${{ github.event.inputs.linear_ticket_id }}-$(echo '${{ github.event.inputs.linear_ticket_title }}' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)"
+          git checkout -b "$BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
-        - name: Run Claude Code
-          env:
-            ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          run: |
-            claude -p \
-              --allowedTools "Bash,Read,Write,Edit" \
-              "You are working on the TradingDay codebase.
+      - name: Run Claude Code
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p \
+            --allowedTools "Bash,Read,Write,Edit" \
+            "You are working on the TradingDay codebase.
 
-              Implement the following Linear ticket:
+            Implement the following Linear ticket:
 
-              Ticket: ${{ github.event.inputs.linear_ticket_id }}
-              Title: ${{ github.event.inputs.linear_ticket_title }}
-              Description: ${{ github.event.inputs.linear_ticket_description }}
+            Ticket: ${{ github.event.inputs.linear_ticket_id }}
+            Title: ${{ github.event.inputs.linear_ticket_title }}
+            Description: ${{ github.event.inputs.linear_ticket_description }}
 
-              Instructions:
-              - Read the codebase first to understand the structure
-              - Implement the ticket requirements
-              - Write or update tests as needed
-              - Do not break existing functionality
-              - Commit your changes with the message: 'feat: ${{ github.event.inputs.linear_ticket_id }} ${{ github.event.inputs.linear_ticket_title }}'
-              "
+            Instructions:
+            - Read the codebase first to understand the structure
+            - Implement the ticket requirements
+            - Write or update tests as needed
+            - Do not break existing functionality
+            - Commit your changes with the message: 'feat: ${{ github.event.inputs.linear_ticket_id }} ${{ github.event.inputs.linear_ticket_title }}'
+            "
 
-        - name: Push branch
-          run: git push origin ${{ steps.branch.outputs.branch }}
+      - name: Push branch
+        run: git push origin ${{ steps.branch.outputs.branch }}
 
-        - name: Create Pull Request
-          env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            gh pr create \
-              --title "${{ github.event.inputs.linear_ticket_id }}: ${{ github.event.inputs.linear_ticket_title }}" \
-              --body "## ${{ github.event.inputs.linear_ticket_id }}
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "${{ github.event.inputs.linear_ticket_id }}: ${{ github.event.inputs.linear_ticket_title }}" \
+            --body "## ${{ github.event.inputs.linear_ticket_id }}
 
-            ${{ github.event.inputs.linear_ticket_description }}
+          ${{ github.event.inputs.linear_ticket_description }}
 
-            ---
-            🤖 Implemented by Claude Code
-            Closes ${{ github.event.inputs.linear_ticket_id }}" \
-              --base master \
-              --head ${{ steps.branch.outputs.branch }}
+          ---
+          🤖 Implemented by Claude Code
+          Closes ${{ github.event.inputs.linear_ticket_id }}" \
+            --base master \
+            --head ${{ steps.branch.outputs.branch }}
