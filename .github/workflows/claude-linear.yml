@@ -47,24 +47,28 @@ jobs:
       - name: Run Claude Code
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
+          TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
+          TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
         run: |
-          claude -p \
-            --allowedTools "Bash,Read,Write,Edit" \
-            "You are working on the TradingDay codebase.
+          cat > /tmp/claude-prompt.txt << EOF
+          You are working on the TradingDay codebase.
 
-            Implement the following Linear ticket:
+          Implement the following Linear ticket:
 
-            Ticket: ${{ github.event.inputs.linear_ticket_id }}
-            Title: ${{ github.event.inputs.linear_ticket_title }}
-            Description: ${{ github.event.inputs.linear_ticket_description }}
+          Ticket: $TICKET_ID
+          Title: $TICKET_TITLE
+          Description: $TICKET_DESCRIPTION
 
-            Instructions:
-            - Read the codebase first to understand the structure
-            - Implement the ticket requirements
-            - Write or update tests as needed
-            - Do not break existing functionality
-            - Commit your changes with the message: 'feat: ${{ github.event.inputs.linear_ticket_id }} ${{ github.event.inputs.linear_ticket_title }}'
-            "
+          Instructions:
+          - Read the codebase first to understand the structure
+          - Implement the ticket requirements
+          - Write or update tests as needed
+          - Do not break existing functionality
+          - Commit your changes with the message: 'feat: $TICKET_ID $TICKET_TITLE'
+          EOF
+
+          claude --print --allowedTools "Bash,Read,Write,Edit" < /tmp/claude-prompt.txt
 
       - name: Push branch
         run: git push origin ${{ steps.branch.outputs.branch }}
