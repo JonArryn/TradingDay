@@ -1,9 +1,16 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-
-using TradingDay.Core.Models;
+using Microsoft.Extensions.DependencyInjection;
+using TradingDay.Core.Interfaces;
+using TradingDay.Core.Services;
 using TradingDay.Data.Config;
 using TradingDay.Data.Http;
+
+var services = new ServiceCollection();
+services.AddSingleton<IGreeter, Greeter>();
+
+await using var provider = services.BuildServiceProvider();
+
+var greeter = provider.GetRequiredService<IGreeter>();
+Console.WriteLine(greeter.Greet());
 
 var config = AlpacaConfig.FromEnvironment();
 
@@ -12,7 +19,7 @@ var httpClient = new HttpClient();
 httpClient.DefaultRequestHeaders.Add(AlpacaConfig.ALPACA_API_KEY_ENV, config.KeyId);
 httpClient.DefaultRequestHeaders.Add(AlpacaConfig.ALPACA_API_SECRET_ENV, config.SecretKey);
 
-var provider = new AlpacaDataProvider(httpClient);
+var dataProvider = new AlpacaDataProvider(httpClient);
 
 var symbol = "AAPL";
 var easternZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
@@ -20,13 +27,13 @@ var yesterday = DateTimeOffset.UtcNow.ToOffset(easternZone.GetUtcOffset(DateTime
 var from = new DateTimeOffset(yesterday.AddHours(9).AddMinutes(30), easternZone.GetUtcOffset(yesterday));
 var to = new DateTimeOffset(yesterday.AddHours(16), easternZone.GetUtcOffset(yesterday));
 
-Console.WriteLine($"Fetching daily bars for {symbol} ({from:yyyy-MM-dd} -> {to:yyyy-MM-dd}...\n"); 
+Console.WriteLine($"Fetching daily bars for {symbol} ({from:yyyy-MM-dd} -> {to:yyyy-MM-dd}...\n");
 
 try
 {
-     var bars = await provider.GetBarsAsync(symbol, from, to);
-     
-     
+     var bars = await dataProvider.GetBarsAsync(symbol, from, to);
+
+
      if (bars.Count == 0) {Console.WriteLine("No bars returned.");
          return;
      }
@@ -42,6 +49,5 @@ try
 catch (Exception ex)
 {
     Console.WriteLine(ex.Message.ToString());
-    return; 
+    return;
 }
-
