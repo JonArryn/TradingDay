@@ -28,6 +28,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
@@ -39,10 +40,11 @@ jobs:
 
       - name: Create branch
         id: branch
+        env:
+          TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
         run: |
-          BRANCH="claude/${{ github.event.inputs.linear_ticket_id }}-$(echo '${{ github.event.inputs.linear_ticket_title }}' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)"
-          git checkout -b "$BRANCH"
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          git checkout -b "$TICKET_ID"
+          echo "branch=$TICKET_ID" >> $GITHUB_OUTPUT
 
       - name: Run Claude Code
         env:
@@ -52,7 +54,7 @@ jobs:
           TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
         run: |
           cat > /tmp/claude-prompt.txt << EOF
-          You are working on the TradingDay codebase.
+          You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
 
           Implement the following Linear ticket:
 
@@ -61,14 +63,18 @@ jobs:
           Description: $TICKET_DESCRIPTION
 
           Instructions:
-          - Read the codebase first to understand the structure
-          - Implement the ticket requirements
-          - Write or update tests as needed
-          - Do not break existing functionality
-          - Commit your changes with the message: 'feat: $TICKET_ID $TICKET_TITLE'
+          - Read CLAUDE.md and the relevant source files before writing anything
+          - Respect the Runner → Data → Core dependency direction; do not introduce cycles
+          - Write or update tests; all tests must pass before committing
+          - Commit all changes with the message: feat: $TICKET_ID $TICKET_TITLE
+          - Do not push; the workflow handles that
           EOF
 
-          claude --print --allowedTools "Bash,Read,Write,Edit" < /tmp/claude-prompt.txt
+          claude --print \
+            --model claude-opus-4-6 \
+            --max-turns 20 \
+            --allowedTools "Bash,Read,Write,Edit,Glob" \
+            < /tmp/claude-prompt.txt
 
       - name: Push branch
         run: git push origin ${{ steps.branch.outputs.branch }}
@@ -76,15 +82,21 @@ jobs:
       - name: Create Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
+          TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
+          TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
         run: |
           gh pr create \
-            --title "${{ github.event.inputs.linear_ticket_id }}: ${{ github.event.inputs.linear_ticket_title }}" \
-            --body "## ${{ github.event.inputs.linear_ticket_id }}
+            --title "$TICKET_ID: $TICKET_TITLE" \
+            --body "$(cat << EOF
+          ## $TICKET_ID
 
-          ${{ github.event.inputs.linear_ticket_description }}
+          $TICKET_DESCRIPTION
 
           ---
           🤖 Implemented by Claude Code
-          Closes ${{ github.event.inputs.linear_ticket_id }}" \
+          Closes $TICKET_ID
+          EOF
+          )" \
             --base master \
-            --head ${{ steps.branch.outputs.branch }}
+            --head "${{ steps.branch.outputs.branch }}"
