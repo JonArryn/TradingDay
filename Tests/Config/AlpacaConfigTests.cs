@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using TradingDay.Data.Config;
+using Xunit;
 
 namespace TradingDay.Tests.Config;
 
