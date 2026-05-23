@@ -74,7 +74,7 @@ jobs:
           
           # Execute Claude directly in headless mode using -p (or --prompt)
           # We add --dangerously-skip-permissions to allow automated file edits in CI
-          claude -p --max-turns 40 --model claude-sonnet-4-6 --dangerously-skip-permissions --allowed-tools Bash,Read,Write,Edit,Glob,LS "
+          claude -p --max-turns 40 --model claude-sonnet-4-6 --dangerously-skip-permissions --allowed-tools Bash,Read,Write,Edit,Glob,LS -p "
           You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
           
           Implement the following Linear ticket:
