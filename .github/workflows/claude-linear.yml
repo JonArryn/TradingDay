@@ -26,6 +26,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Ensures npm and node are available for Claude CLI
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -59,28 +64,32 @@ jobs:
           git checkout -b "$BRANCH"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
-      - name: Run Claude Code
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          show_full_output: true
-          claude_args: "--max-turns 40 --model claude-sonnet-4-6 --allowed-tools Bash,Read,Write,Edit,Glob,LS"
-          prompt: |
-            You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
-
-            Implement the following Linear ticket:
-
-            Ticket: ${{ github.event.inputs.linear_ticket_id }}
-            Title: ${{ github.event.inputs.linear_ticket_title }}
-            Description:
-            ${{ github.event.inputs.linear_ticket_description }}
-
-            Instructions:
-            - Read CLAUDE.md and the relevant source files before writing anything
-            - Respect the Runner → Data → Core dependency direction; do not introduce cycles
-            - Write or update tests; all tests must pass
-            - Do not commit or push; the workflow handles that
+      - name: Run Claude Code CLI directly
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Install the Claude Code CLI globally on the runner
+          npm install -g @anthropic-ai/claude-code
+          
+          # Execute Claude directly in headless mode using -p (or --prompt)
+          # We add --dangerously-skip-permissions to allow automated file edits in CI
+          claude -p --max-turns 40 --model claude-sonnet-4-6 --dangerously-skip-permissions --allowed-tools Bash,Read,Write,Edit,Glob,LS "
+          You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
+          
+          Implement the following Linear ticket:
+          
+          Ticket: ${{ github.event.inputs.linear_ticket_id }}
+          Title: ${{ github.event.inputs.linear_ticket_title }}
+          Description:
+          ${{ github.event.inputs.linear_ticket_description }}
+          
+          Instructions:
+          - Read CLAUDE.md and the relevant source files before writing anything
+          - Respect the Runner → Data → Core dependency direction; do not introduce cycles
+          - Write or update tests; all tests must pass
+          - Do not commit or push; the workflow handles that
+          "
 
       - name: Commit changes
         env:
