@@ -23,6 +23,13 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -42,7 +49,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
         run: |
-          # Abort if a PR for this ticket already exists
           EXISTING=$(gh pr list --search "$TICKET_ID in:title" --state open --json number --jq 'length')
           if [ "$EXISTING" -gt 0 ]; then
             echo "An open PR for $TICKET_ID already exists. Aborting."
@@ -55,7 +61,6 @@ jobs:
           TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
         run: |
           BRANCH="$TICKET_ID"
-          # Append run number if branch already exists on remote
           if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
             BRANCH="${TICKET_ID}-${{ github.run_number }}"
           fi
@@ -69,6 +74,8 @@ jobs:
           TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
           TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
         run: |
+          printf '%s' "$TICKET_DESCRIPTION" > /tmp/ticket-description.txt
+
           cat > /tmp/claude-prompt.txt << EOF
           You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
 
@@ -76,21 +83,41 @@ jobs:
 
           Ticket: $TICKET_ID
           Title: $TICKET_TITLE
-          Description: $TICKET_DESCRIPTION
+          Description:
+          EOF
+
+          cat /tmp/ticket-description.txt >> /tmp/claude-prompt.txt
+
+          cat >> /tmp/claude-prompt.txt << 'EOF'
 
           Instructions:
           - Read CLAUDE.md and the relevant source files before writing anything
           - Respect the Runner → Data → Core dependency direction; do not introduce cycles
-          - Write or update tests; all tests must pass before committing
-          - Commit all changes with the message: feat: $TICKET_ID $TICKET_TITLE
-          - Do not push; the workflow handles that
+          - Write or update tests; all tests must pass
+          - Do not commit or push; the workflow handles that
           EOF
 
           claude --print \
             --model claude-sonnet-4-6 \
-            --max-turns 20 \
-            --allowedTools "Bash,Read,Write,Edit,Glob" \
+            --max-turns 40 \
+            --allowedTools "Bash,Read,Write,Edit,Glob,LS" \
             < /tmp/claude-prompt.txt
+
+      - name: Commit changes
+        env:
+          TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
+          TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: $TICKET_ID $TICKET_TITLE"
+          fi
+          COMMITS=$(git rev-list --count HEAD ^origin/master)
+          if [ "$COMMITS" -eq 0 ]; then
+            echo "No commits on branch — Claude made no changes. Aborting."
+            exit 1
+          fi
+          echo "$COMMITS commit(s) ready to push."
 
       - name: Push branch
         run: git push origin ${{ steps.branch.outputs.branch }}
@@ -100,19 +127,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
           TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
-          TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
         run: |
+          {
+            printf '## %s\n\n' "$TICKET_ID"
+            cat /tmp/ticket-description.txt
+            printf '\n\n---\n🤖 Implemented by Claude Code\nCloses %s\n' "$TICKET_ID"
+          } > /tmp/pr-body.txt
+
           gh pr create \
             --title "$TICKET_ID: $TICKET_TITLE" \
-            --body "$(cat << EOF
-          ## $TICKET_ID
-
-          $TICKET_DESCRIPTION
-
-          ---
-          🤖 Implemented by Claude Code
-          Closes $TICKET_ID
-          EOF
-          )" \
+            --body-file /tmp/pr-body.txt \
             --base master \
             --head "${{ steps.branch.outputs.branch }}"
