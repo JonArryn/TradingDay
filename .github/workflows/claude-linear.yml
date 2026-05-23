@@ -31,14 +31,6 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
-
       - name: Configure git
         run: |
           git config user.name "Claude Code Bot"
@@ -68,40 +60,26 @@ jobs:
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
       - name: Run Claude Code
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
-          TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
-          TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
-        run: |
-          printf '%s' "$TICKET_DESCRIPTION" > /tmp/ticket-description.txt
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: "--max-turns 40 --model claude-sonnet-4-6"
+          prompt: |
+            You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
 
-          cat > /tmp/claude-prompt.txt << EOF
-          You are working on the TradingDay codebase. Read CLAUDE.md first for architecture guidance.
+            Implement the following Linear ticket:
 
-          Implement the following Linear ticket:
+            Ticket: ${{ github.event.inputs.linear_ticket_id }}
+            Title: ${{ github.event.inputs.linear_ticket_title }}
+            Description:
+            ${{ github.event.inputs.linear_ticket_description }}
 
-          Ticket: $TICKET_ID
-          Title: $TICKET_TITLE
-          Description:
-          EOF
-
-          cat /tmp/ticket-description.txt >> /tmp/claude-prompt.txt
-
-          cat >> /tmp/claude-prompt.txt << 'EOF'
-
-          Instructions:
-          - Read CLAUDE.md and the relevant source files before writing anything
-          - Respect the Runner → Data → Core dependency direction; do not introduce cycles
-          - Write or update tests; all tests must pass
-          - Do not commit or push; the workflow handles that
-          EOF
-
-          claude --print \
-            --model claude-sonnet-4-6 \
-            --max-turns 40 \
-            --allowedTools "Bash,Read,Write,Edit,Glob,LS" \
-            < /tmp/claude-prompt.txt
+            Instructions:
+            - Read CLAUDE.md and the relevant source files before writing anything
+            - Respect the Runner → Data → Core dependency direction; do not introduce cycles
+            - Write or update tests; all tests must pass
+            - Do not commit or push; the workflow handles that
 
       - name: Commit changes
         env:
@@ -127,7 +105,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TICKET_ID: ${{ github.event.inputs.linear_ticket_id }}
           TICKET_TITLE: ${{ github.event.inputs.linear_ticket_title }}
+          TICKET_DESCRIPTION: ${{ github.event.inputs.linear_ticket_description }}
         run: |
+          printf '%s' "$TICKET_DESCRIPTION" > /tmp/ticket-description.txt
           {
             printf '## %s\n\n' "$TICKET_ID"
             cat /tmp/ticket-description.txt
