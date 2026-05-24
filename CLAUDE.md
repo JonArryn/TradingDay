@@ -43,8 +43,8 @@ For local development, set these in `Runner/.env` (loaded by Docker Compose) or 
 Tickets in the **TRD** Linear team flow through automated implementation overnight:
 
 1. A ticket is moved to **"Ready for Claude"** status in Linear
-2. A webhook fires to a Vercel relay, which triggers the `claude-linear.yml` GitHub Action
-3. Claude Code checks out this repo, creates a branch named exactly after the Linear ticket ID (e.g. `TRD-42`), implements the ticket, and opens a PR
+2. A webhook fires to a Vercel relay, which opens a GitHub Issue tagged `@claude` with the ticket details
+3. The `claude.yml` GitHub Action triggers, Claude creates a branch, implements the ticket, and opens a PR
 4. The PR title includes the Linear ticket ID so Linear auto-links and moves the ticket to In Review
 
 **When implementing a ticket:**
@@ -52,6 +52,6 @@ Tickets in the **TRD** Linear team flow through automated implementation overnig
 - Respect the `Runner → Data → Core` dependency direction strictly; do not introduce cycles
 - Establish and use a DI Container — wire dependencies through interfaces always
 - **Every PR must include tests.** Add or extend a test project as needed. Tests must pass before committing
-- Branch name must match the Linear ticket ID exactly (e.g. `TRD-42`)
+- Branch name must use Linear's format: `{username}/{identifier}-{title-slug}` (e.g. `jonarryn/trd-42-add-rsi-indicator`). The issue body will supply the exact branch name from Linear's webhook — use it verbatim
 - Commit message format: `feat: TRD-{n} {ticket title}`
 - Do not modify `Runner/.env`, `launchSettings.json`, or any gitignored credential files
