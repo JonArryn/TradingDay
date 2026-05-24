@@ -5,11 +5,13 @@ using TradingDay.Core.Models;
 
 namespace TradingDay.Data.Http;
 
+/// <summary>Alpaca Markets implementation of <see cref="IMarketDataProvider"/>.</summary>
 public sealed class AlpacaDataProvider(HttpClient http) : IMarketDataProvider
 {
     private const string BaseUrl = "https://data.alpaca.markets";
     private static readonly JsonSerializerOptions JsonOpts = new() {PropertyNameCaseInsensitive = true};
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Bar>> GetBarsAsync(string symbol, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
         var start = Uri.EscapeDataString(from.UtcDateTime.ToString("o"));
@@ -34,6 +36,10 @@ public sealed class AlpacaDataProvider(HttpClient http) : IMarketDataProvider
             .ToList()
             .AsReadOnly();
     }
+
+    /// <inheritdoc/>
+    public Task<Quote> GetLatestQuoteAsync(string symbol, CancellationToken ct) =>
+        throw new NotImplementedException("GetLatestQuoteAsync is pending Alpaca Market Data API implementation.");
 }
 
 file sealed class AlpacaBarsEnvelope
