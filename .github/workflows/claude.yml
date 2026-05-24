@@ -40,11 +40,14 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          prompt: |
+            ${{ github.event.issue.body || github.event.comment.body || github.event.review.body }}
 
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
+            ---
+            If this task asks you to implement a Linear ticket, you MUST follow these steps in order:
+            1. Before touching any code, create and switch to a git branch with the EXACT name given in the "Branch:" field of the task above. Run: git checkout -b <branch-name>
+            2. Read CLAUDE.md to understand the architecture before writing anything.
+            3. Implement the feature. Respect the Runner → Data → Core dependency direction. Write tests; all must pass.
+            4. When done, create the pull request by running: gh pr create --title "<ticket-id>: <ticket-title>" --body "<summary>" --base master
+            Never use Claude's default branch naming — always use the branch name from the task.
 
